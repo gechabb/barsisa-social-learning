@@ -1,0 +1,428 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Barsisa - Social Learning</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f0f2f5; }
+        .sidebar { width: 250px; position: fixed; top: 0; left: 0; bottom: 0; background-color: #fff; padding: 20px; border-right: 1px solid #ddd; }
+        .main-content { margin-left: 270px; padding: 20px; }
+        .card { background-color: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 15px; }
+        .profile-pic { width: 150px; height: 150px; border-radius: 50%; object-fit: cover; }
+        .btn-primary { background-color: #26a69a; color: #fff; padding: 8px 16px; border-radius: 6px; }
+        .btn-primary:hover { background-color: #1e8c80; }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="text-center mb-6">
+            <img src="https://images.unsplash.com/photo-1570295999919-56ceb5ecca61" alt="Profile" class="profile-pic mx-auto">
+            <h2 class="text-lg font-bold mt-2">Abebe Kebede</h2>
+        </div>
+        <ul class="space-y-4">
+            <li><a href="#home" class="text-teal-600 hover:underline">Home</a></li>
+            <li><a href="#profile" class="text-teal-600 hover:underline">Profile</a></li>
+            <li><a href="#connect" class="text-teal-600 hover:underline">Connect</a></li>
+            <li><a href="#messages" class="text-teal-600 hover:underline">Messages</a></li>
+            <li><a href="#friends" class="text-teal-600 hover:underline">Friends</a></li>
+            <li><a href="#logout" class="text-teal-600 hover:underline">Logout</a></li>
+        </ul>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Login/Registration Section -->
+        <section id="login" class="max-w-md mx-auto mb-8">
+            <div class="card">
+                <h2 class="text-2xl font-bold text-center mb-4">Log In</h2>
+                <form id="loginForm" class="space-y-4">
+                    <div>
+                        <input type="email" id="loginEmail" placeholder="Email or Phone" class="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-600" required>
+                    </div>
+                    <div>
+                        <input type="password" id="loginPassword" placeholder="Password" class="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-600" required>
+                    </div>
+                    <div class="text-right">
+                        <a href="mailto:getacherabayneh@gmail.com?subject=Password Reset Request" class="text-teal-600 hover:underline">Forgot Password?</a>
+                    </div>
+                    <button type="submit" class="w-full btn-primary">Log In</button>
+                </form>
+                <p id="loginStatus" class="mt-2 text-center text-gray-600"></p>
+                <div class="text-center mt-4">
+                    <button id="showRegister" class="bg-teal-500 text-white p-2 rounded-lg">Create New Account</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Registration Form -->
+        <section id="register" class="max-w-md mx-auto mb-8 hidden">
+            <div class="card">
+                <h2 class="text-2xl font-bold text-center mb-4">Sign Up</h2>
+                <form id="registerForm" class="space-y-4">
+                    <div>
+                        <input type="text" id="regName" placeholder="Full Name" class="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-600" required>
+                    </div>
+                    <div>
+                        <input type="email" id="regEmail" placeholder="Email" class="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-600" required>
+                    </div>
+                    <div>
+                        <input type="password" id="regPassword" placeholder="New Password" class="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-600" required>
+                    </div>
+                    <div>
+                        <select id="regRole" class="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-600">
+                            <option value="teacher">Teacher</option>
+                            <option value="student">Student</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="w-full btn-primary">Sign Up</button>
+                </form>
+                <p id="registerStatus" class="mt-2 text-center text-gray-600"></p>
+                <div class="text-center mt-4">
+                    <button id="showLogin" class="bg-gray-500 text-white p-2 rounded-lg">Back to Login</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Feed Section -->
+        <section id="feed" class="hidden">
+            <div class="card mb-4">
+                <h2 class="text-xl font-bold mb-2">Create Post</h2>
+                <textarea id="postContent" placeholder="What's on your mind?" class="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-600" rows="3"></textarea>
+                <button id="postButton" class="mt-2 btn-primary">Post</button>
+            </div>
+            <div id="posts" class="space-y-4"></div>
+        </section>
+
+        <!-- Connect Section -->
+        <section id="connect" class="hidden">
+            <div class="card">
+                <h2 class="text-xl font-bold mb-2">Connect with Teachers</h2>
+                <div id="teacherList" class="space-y-2"></div>
+                <p id="connectStatus" class="mt-2 text-center text-gray-600"></p>
+            </div>
+        </section>
+
+        <!-- Messages Section -->
+        <section id="messages" class="hidden">
+            <div class="card">
+                <h2 class="text-xl font-bold mb-2">Messages</h2>
+                <div id="chatList" class="space-y-2 mb-4">
+                    <!-- Dynamic chat list will be populated here -->
+                </div>
+                <div id="chatWindow" class="hidden">
+                    <div id="messagesContainer" class="h-64 overflow-y-auto border p-2 mb-2"></div>
+                    <input type="text" id="messageInput" placeholder="Type a message..." class="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-600">
+                    <button id="sendMessage" class="mt-2 btn-primary">Send</button>
+                </div>
+                <p id="messageStatus" class="mt-2 text-center text-gray-600"></p>
+            </div>
+        </section>
+
+        <!-- Friends Section -->
+        <section id="friends" class="hidden">
+            <div class="card">
+                <h2 class="text-xl font-bold mb-2">Friends</h2>
+                <div id="friendList" class="space-y-2">
+                    <div class="flex items-center space-x-2">
+                        <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330" alt="Friend" class="w-10 h-10 rounded-full">
+                        <span>Hana Ali</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <img src="https://images.unsplash.com/photo-1570295999919-56ceb5ecca61" alt="Friend" class="w-10 h-10 rounded-full">
+                        <span>Abebe Kebede</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        // Initialize EmailJS (replace with your EmailJS User ID)
+        emailjs.init("your_user_id");
+
+        // Toggle between login and register
+        document.getElementById('showRegister').addEventListener('click', () => {
+            document.getElementById('login').classList.add('hidden');
+            document.getElementById('register').classList.remove('hidden');
+        });
+        document.getElementById('showLogin').addEventListener('click', () => {
+            document.getElementById('register').classList.add('hidden');
+            document.getElementById('login').classList.remove('hidden');
+        });
+
+        // Login functionality
+        document.getElementById('loginForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            const users = JSON.parse(localStorage.getItem('users')) || [];
+            const user = users.find(u => u.email === email && u.password === password);
+
+            if (user) {
+                document.getElementById('loginStatus').textContent = 'Login successful!';
+                document.getElementById('login').classList.add('hidden');
+                document.getElementById('feed').classList.remove('hidden');
+                document.getElementById('connect').classList.remove('hidden');
+                document.getElementById('messages').classList.remove('hidden');
+                document.getElementById('friends').classList.remove('hidden');
+                renderPosts();
+                renderTeachers();
+                renderChats();
+            } else {
+                document.getElementById('loginStatus').textContent = 'Invalid email or password';
+            }
+        });
+
+        // Registration functionality
+        document.getElementById('registerForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const name = document.getElementById('regName').value;
+            const email = document.getElementById('regEmail').value;
+            const password = document.getElementById('regPassword').value;
+            const role = document.getElementById('regRole').value;
+            const users = JSON.parse(localStorage.getItem('users')) || [];
+
+            if (users.some(u => u.email === email)) {
+                document.getElementById('registerStatus').textContent = 'Email already registered';
+                return;
+            }
+
+            users.push({ name, email, password, role });
+            localStorage.setItem('users', JSON.stringify(users));
+            sendEmail('Registration', { name, email, role }, 0);
+            document.getElementById('registerStatus').textContent = 'Registration successful! Please log in.';
+            document.getElementById('registerForm').reset();
+            document.getElementById('register').classList.add('hidden');
+            document.getElementById('login').classList.remove('hidden');
+        });
+
+        // Posting functionality with likes
+        document.getElementById('postButton').addEventListener('click', () => {
+            const content = document.getElementById('postContent').value;
+            if (content) {
+                const posts = JSON.parse(localStorage.getItem('posts')) || [];
+                posts.push({ content, timestamp: new Date().toLocaleString('en-US', { timeZone: 'Africa/Addis_Ababa' }), likes: 0 });
+                localStorage.setItem('posts', JSON.stringify(posts));
+                renderPosts();
+                document.getElementById('postContent').value = '';
+            }
+        });
+
+        // Render posts with likes
+        function renderPosts() {
+            const posts = JSON.parse(localStorage.getItem('posts')) || [];
+            const postsDiv = document.getElementById('posts');
+            postsDiv.innerHTML = '';
+            posts.forEach((post, index) => {
+                const div = document.createElement('div');
+                div.className = 'card';
+                div.innerHTML = `
+                    <p>${post.content}</p>
+                    <small>${post.timestamp}</small>
+                    <div class="mt-2">
+                        <button class="like-btn text-teal-600" data-index="${index}">Like (${post.likes})</button>
+                    </div>
+                `;
+                postsDiv.appendChild(div);
+            });
+
+            document.querySelectorAll('.like-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const index = e.target.getAttribute('data-index');
+                    const posts = JSON.parse(localStorage.getItem('posts'));
+                    posts[index].likes++;
+                    localStorage.setItem('posts', JSON.stringify(posts));
+                    renderPosts();
+                });
+            });
+        }
+
+        // Render teachers for connection with payment options
+        function renderTeachers() {
+            const users = JSON.parse(localStorage.getItem('users')) || [];
+            const teachers = users.filter(u => u.role === 'teacher');
+            const teacherList = document.getElementById('teacherList');
+            teacherList.innerHTML = '';
+            teachers.forEach((teacher, index) => {
+                const div = document.createElement('div');
+                div.className = 'flex items-center space-x-2';
+                div.innerHTML = `
+                    <img src="https://images.unsplash.com/photo-1570295999919-56ceb5ecca61" alt="${teacher.name}" class="w-10 h-10 rounded-full">
+                    <span>${teacher.name} (Teacher)</span>
+                    <button class="connect-btn btn-primary ml-2" data-index="${index}">Connect (50 ETB)</button>
+                `;
+                teacherList.appendChild(div);
+            });
+
+            document.querySelectorAll('.connect-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const index = e.target.getAttribute('data-index');
+                    const teacher = users[index];
+                    const student = users.find(u => u.role === 'student' && u.email === (document.getElementById('loginEmail')?.value || ''));
+                    if (student) {
+                        const paymentOptions = `
+                            <div class="mt-2">
+                                <div class="flex items-center mr-2">
+                                    <button class="telebirr-btn bg-teal-600 text-white p-2 rounded-lg mr-2">Pay with Telebirr</button>
+                                    <img src="https://via.placeholder.com/100" alt="Telebirr QR Code" class="w-20 h-20" style="display:none;" id="telebirrQR">
+                                </div>
+                                <button class="cbe-btn bg-teal-600 text-white p-2 rounded-lg">Pay with CBE (1000300637632)</button>
+                            </div>
+                        `;
+                        document.getElementById('connectStatus').innerHTML = `Select payment method to connect with ${teacher.name}: ${paymentOptions}`;
+                        document.querySelector('.telebirr-btn').addEventListener('click', () => {
+                            document.getElementById('telebirrQR').style.display = 'block';
+                            if (confirm('Scan the QR code to pay 50 ETB with Telebirr. Confirm payment?')) {
+                                const connections = JSON.parse(localStorage.getItem('connections')) || [];
+                                connections.push({ student: student.name, teacher: teacher.name, paid: true });
+                                localStorage.setItem('connections', JSON.stringify(connections));
+                                sendEmail('Connection', { student: student.name, teacher: teacher.name, fee: 50, method: 'Telebirr' }, 0);
+                                document.getElementById('connectStatus').textContent = `Connected with ${teacher.name}! Fee of 50 ETB paid via Telebirr.`;
+                                document.getElementById('telebirrQR').style.display = 'none';
+                                renderChats();
+                            } else {
+                                document.getElementById('connectStatus').textContent = 'Connection requires fee payment.';
+                                document.getElementById('telebirrQR').style.display = 'none';
+                            }
+                        });
+                        document.querySelector('.cbe-btn').addEventListener('click', () => {
+                            if (confirm('Pay 50 ETB to CBE account 1000300637632. Confirm payment?')) {
+                                const connections = JSON.parse(localStorage.getItem('connections')) || [];
+                                connections.push({ student: student.name, teacher: teacher.name, paid: true });
+                                localStorage.setItem('connections', JSON.stringify(connections));
+                                sendEmail('Connection', { student: student.name, teacher: teacher.name, fee: 50, method: 'CBE' }, 0);
+                                document.getElementById('connectStatus').textContent = `Connected with ${teacher.name}! Fee of 50 ETB paid via CBE.`;
+                                renderChats();
+                            } else {
+                                document.getElementById('connectStatus').textContent = 'Connection requires fee payment.';
+                            }
+                        });
+                    } else {
+                        document.getElementById('connectStatus').textContent = 'Only students can connect.';
+                    }
+                });
+            });
+        }
+
+        // Messaging functionality restricted to students with payment
+        function renderChats() {
+            const users = JSON.parse(localStorage.getItem('users')) || [];
+            const currentUser = users.find(u => u.email === document.getElementById('loginEmail')?.value);
+            const connections = JSON.parse(localStorage.getItem('connections')) || [];
+            const chatList = document.getElementById('chatList');
+            chatList.innerHTML = '';
+            if (currentUser && currentUser.role === 'student') {
+                connections.filter(c => c.student === currentUser.name && c.paid).forEach(conn => {
+                    const teacher = users.find(u => u.name === conn.teacher);
+                    const chatBtn = document.createElement('button');
+                    chatBtn.textContent = `Chat with ${teacher.name}`;
+                    chatBtn.className = 'w-full text-left p-2 bg-teal-100 rounded-lg hover:bg-teal-200';
+                    chatBtn.addEventListener('click', () => {
+                        document.getElementById('chatWindow').classList.remove('hidden');
+                        renderMessages(currentUser.name, teacher.name);
+                    });
+                    chatList.appendChild(chatBtn);
+                });
+            } else if (currentUser && currentUser.role === 'teacher') {
+                document.getElementById('messageStatus').textContent = 'Teachers cannot initiate chats.';
+            } else {
+                document.getElementById('messageStatus').textContent = 'Log in as a student to chat.';
+            }
+        }
+
+        function renderMessages(user1, user2) {
+            const messages = JSON.parse(localStorage.getItem('messages')) || [];
+            const chatMessages = messages.filter(m => 
+                (m.sender === user1 && m.receiver === user2) || (m.sender === user2 && m.receiver === user1)
+            );
+            const messagesContainer = document.getElementById('messagesContainer');
+            messagesContainer.innerHTML = chatMessages.map(m => `
+                <p class="${m.sender === user1 ? 'text-right' : 'text-left'} text-gray-700">${m.sender}: ${m.content} (${m.timestamp})</p>
+            `).join('');
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        document.getElementById('sendMessage').addEventListener('click', () => {
+            const currentUser = users.find(u => u.email === document.getElementById('loginEmail')?.value);
+            const otherUser = users.find(u => u.name !== currentUser?.name && document.getElementById('chatList').textContent.includes(u.name));
+            if (currentUser && currentUser.role === 'student' && document.getElementById('chatWindow').classList.contains('hidden') === false) {
+                const content = document.getElementById('messageInput').value.trim();
+                if (content) {
+                    const messages = JSON.parse(localStorage.getItem('messages')) || [];
+                    messages.push({
+                        sender: currentUser.name,
+                        receiver: otherUser.name,
+                        content: content,
+                        timestamp: new Date().toLocaleString('en-US', { timeZone: 'Africa/Addis_Ababa' })
+                    });
+                    localStorage.setItem('messages', JSON.stringify(messages));
+                    document.getElementById('messageInput').value = '';
+                    renderMessages(currentUser.name, otherUser.name);
+                }
+            } else {
+                document.getElementById('messageStatus').textContent = 'Only students can send messages after payment.';
+            }
+        });
+
+        // Email function
+        function sendEmail(template, data, attempt) {
+            emailjs.send('your_service_id', `template_${template.toLowerCase()}`, {
+                to_email: 'getacherabayneh@gmail.com',
+                from_name: data.student || data.name || 'New User',
+                message: `New ${template}: ${JSON.stringify(data)}`
+            }).then(() => {}, (error) => {
+                if (attempt < 2) sendEmail(template, data, attempt + 1);
+            });
+        }
+
+        // Initial render
+        renderPosts();
+        renderTeachers();
+        renderChats();
+    </script>
+</body>
+</html>
